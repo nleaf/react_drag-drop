@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Nick Leaf - React.js Image Request, Drag/Drop</title>
+    <script src="http://fb.me/react-0.12.2.js"></script>
+    <script src="http://fb.me/JSXTransformer-0.12.2.js"></script>
+    <script src="http://code.jquery.com/jquery-1.10.0.min.js"></script>
+    <link href=
+    "https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css"
+    rel="stylesheet">
+    <style media="screen" type="text/css">
+
+      li.placeholder { background: green; height: 88px;}
+      li li.placeholder { background: none;}
+      li.placeholder:before {content: "Drop here"; color: white; font-size: 2em;}
+      li li.placeholder:before {content: "";}
+      ul { list-style: none; margin:0; padding:0; display: block;}
+      li {padding: 15px; position: relative; width: 50%; background:#eee; overflow: hidden;background: rgb(255,255,255); /* Old browsers */
+    background: -moz-linear-gradient(top, rgba(255,255,255,1) 0%, rgba(229,229,229,1) 100%); /* FF3.6+ */
+    background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,rgba(255,255,255,1)), color-stop(100%,rgba(229,229,229,1))); /* Chrome,Safari4+ */
+    background: -webkit-linear-gradient(top, rgba(255,255,255,1) 0%,rgba(229,229,229,1) 100%); /* Chrome10+,Safari5.1+ */
+    background: -o-linear-gradient(top, rgba(255,255,255,1) 0%,rgba(229,229,229,1) 100%); /* Opera 11.10+ */
+    background: -ms-linear-gradient(top, rgba(255,255,255,1) 0%,rgba(229,229,229,1) 100%); /* IE10+ */
+    background: linear-gradient(to bottom, rgba(255,255,255,1) 0%,rgba(229,229,229,1) 100%); /* W3C */}
+      li span { position: absolute !important; top: 50% !important; right: 10% !important;}
+      pre { position: absolute; top: 0px; right: 0px;}
+      .unselectable {
+        /* For Opera and <= IE9, we need to add unselectable="on" attribute onto each element */
+        /* Check this site for more details: http://help.dottoro.com/lhwdpnva.php */
+        -moz-user-select: none; /* These user-select properties are inheritable, used to prevent text selection */
+        -webkit-user-select: none;
+        -ms-user-select: none; /* From IE10 only */
+        user-select: none; /* Not valid CSS yet, as of July 2012 */
+
+        -webkit-user-drag: none; /* Prevents dragging of images/divs etc */
+        user-drag: none;
+    }
+
+    </style>
+</head>
+
+<body>
+    <script type="text/jsx">
+/** @jsx React.DOM */
+    var placeholder = document.createElement("li");
+    placeholder.className = "placeholder";
+
+    var List = React.createClass({
+      getInitialState: function() {
+        return {qImage: []};
+      },
+      componentDidMount: function() {
+          var self = this;
+
+          if(!localStorage.state){
+              $.get(this.props.source, function(result) {
+                var collection = result.data.children;
+                if (this.isMounted()) {
+                  var pictures = collection.map(function(p){
+                    return { 
+                        id: p.data.id, 
+                        url: p.data.url, 
+                        thumb: p.data.thumbnail, 
+                        title: p.data.title
+                    };
+                  });
+
+                  self.setState({ qImage: pictures });   
+                }
+            }.bind(this));
+          }else{
+            var pictures = JSON.parse(localStorage.getItem('state'));
+            self.setState({ qImage: pictures });
+            return
+          }
+      },
+      componentDidUpdate: function(prevProps, prevState) {
+        localStorage.state = JSON.stringify(this.state.qImage);
+      },
+      dragStart: function(e) {
+        this.dragged = e.currentTarget;
+        e.dataTransfer.effectAllowed = 'move';
+
+        // Firefox requires calling dataTransfer.setData
+        // for the drag to properly work
+        e.dataTransfer.setData("text/html", e.currentTarget);
+      },
+      dragEnd: function(e) {
+
+        this.dragged.style.display = "block";
+        this.dragged.parentNode.removeChild(placeholder);
+
+        // Update state
+        var qImage = this.state.qImage;
+        var from = Number(this.dragged.dataset.id);
+        var to = Number(this.over.dataset.id);
+        if(from < to) to--;
+        if(this.nodePlacement == "after") to++;
+        qImage.splice(to, 0, qImage.splice(from, 1)[0]);
+        this.setState({qImage: qImage});
+      },
+      dragOver: function(e) {
+        e.preventDefault();
+        this.dragged.style.display = "none";
+        if(e.target.className == "placeholder") return;
+        this.over = e.target;
+        // Inside the dragOver method
+        var relY = e.clientY - this.over.offsetTop;
+        var height = this.over.offsetHeight / 2;
+        var parent = e.target.parentNode;
+        
+        if(relY > height) {
+          this.nodePlacement = "after";
+          parent.insertBefore(placeholder, e.target.nextElementSibling);
+        }
+        else if(relY < height) {
+          this.nodePlacement = "before"
+          parent.insertBefore(placeholder, e.target);
+        }
+      },
+      render: function() {
+        var listItems = this.state.qImage.map((function(p, i) {
+          return (
+            <li data-id={i}
+                key={i}
+                draggable="true"
+                onDragEnd={this.dragEnd}
+                onDragStart={this.dragStart}
+                className="btn-lg"
+                >
+              <img className="img-responsive unselectable" src={p.thumb} title={p.title} onClick=""/>
+              <span className="glyphicon glyphicon-resize-vertical" aria-hidden="true"></span>
+            </li>
+          );
+        }).bind(this));
+        
+        return (<div>
+            <ul className='list-unstyled' onDragOver={this.dragOver}>{listItems}</ul>
+            <pre>App State: <br /><br/>{JSON.stringify(this.state.qImage,0,2)}</pre>
+            </div>)
+      }
+
+    });
+
+    //Renders
+    React.render(
+      <List source="https://www.reddit.com/r/EarthPorn/top/.json?limit=5"/>, document.body
+    );
+
+    </script>
+</body>
+</html>
