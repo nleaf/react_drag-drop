@@ -41,21 +41,28 @@
 
 <body>
     <script type="text/jsx">
-/** @jsx React.DOM */
+  /** @jsx React.DOM */
+  
+  //Create placeholder element to fill void of list item while dragged
     var placeholder = document.createElement("li");
     placeholder.className = "placeholder";
 
+    //Generate List Class
     var List = React.createClass({
       getInitialState: function() {
+        //SET Queried Images state to be populated with an array 
         return {qImage: []};
       },
+      //Below only initialized when rendering occurs within the DOM. FB DOCs suggest placing all AJAX request within said componet lifecycle.
       componentDidMount: function() {
           var self = this;
-
+          //Check if localStorage.state is empty, if so process ajax request. Else pull current data set in localStorage.state
           if(!localStorage.state){
               $.get(this.props.source, function(result) {
                 var collection = result.data.children;
+                //Check to make sure componet is rendered into the DOM
                 if (this.isMounted()) {
+                  //Iterate over current collection, clean/parse
                   var pictures = collection.map(function(p){
                     return { 
                         id: p.data.id, 
@@ -64,16 +71,18 @@
                         title: p.data.title
                     };
                   });
-
+                  //Gather parsed collection data back to Queried Images.
                   self.setState({ qImage: pictures });   
                 }
             }.bind(this));
           }else{
+            //Grab current localStorage State then append to Queried Images
             var pictures = JSON.parse(localStorage.getItem('state'));
             self.setState({ qImage: pictures });
             return
           }
       },
+      //Invoked to update changed to the DOM
       componentDidUpdate: function(prevProps, prevState) {
         localStorage.state = JSON.stringify(this.state.qImage);
       },
@@ -82,12 +91,12 @@
         e.dataTransfer.effectAllowed = 'move';
 
         // Firefox requires calling dataTransfer.setData
-        // for the drag to properly work
         e.dataTransfer.setData("text/html", e.currentTarget);
       },
       dragEnd: function(e) {
 
         this.dragged.style.display = "block";
+        //Remove injected placholder when dropped
         this.dragged.parentNode.removeChild(placeholder);
 
         // Update state
@@ -104,7 +113,7 @@
         this.dragged.style.display = "none";
         if(e.target.className == "placeholder") return;
         this.over = e.target;
-        // Inside the dragOver method
+
         var relY = e.clientY - this.over.offsetTop;
         var height = this.over.offsetHeight / 2;
         var parent = e.target.parentNode;
